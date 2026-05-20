@@ -1,0 +1,14 @@
+*.pyc
+__pycache__/
+.pytest_cache/
+.idea
+api_httpx/.env
+.venv
+config.browserstack.env
+allure-results
+venv
+.allure-results.zip
+**/.DS_Store
+logs/info.log
+video
+traces
