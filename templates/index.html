@@ -4,19 +4,61 @@
     <meta charset="UTF-8">
     <title>Title</title>
     <style>
+        h6 {
+        font-size: 15px
+        }
+
         .h2-text {
         color: red
+         }
+        .h6-text {
+            color: yellow
+        }
+
+
+        #h1-text {
+          font-size: 50px
+        }
+
+        div.python > a {
+            color: green
+        }
+
+        ul li {
+           color: green
+        }
+
+        input[type="text"] {
+            background-color: blue
+        }
+
+        input[type="text"]:hover {
+            background-color: green
+        }
+
+        a:hover {
+            color: red
+        }
+
+        li::marker {
+            color: red
+        }
+
+        ul > li:nth-child(2) {
+            color: blue
         }
     </style>
 </head>
 <body>
-<div>
-    <h1 id="h1-text">H1 text</h1>
+<div class="python">
+    <h1 id="h1-text">H1 text 1</h1>
+    <h1>H1 text 2</h1>
+    <h1>H11 text 2</h1>
     <h2 class="h2-text">H2 text</h2>
     <h3>H3 text</h3>
     <h4>H4 text</h4>
     <h5>H5 text</h5>
-    <h6 class="h2-text">H6 text</h6>
+    <h6 class="h2-text h6-text">H6 text</h6>
     <p><span style="color: green" > TEXT</span></p>
     <a href="https://www.youtube.com/" target="_blank">Youtube</a>
 
@@ -53,6 +95,22 @@
 
         </tbody>
     </table>
+    <div class="nth">
+        <p>1</p>
+        <p>2</p>
+        <h6>3</h6>
+        <h5>4</h5>
+        <p>5</p>
+    </div>
+</div>
+<div class="java-script">
+    <h2 class="h2-text">H2 text</h2>
+    <a href="https://www.youtube.com/" target="_blank">Java</a>
+    <ul>
+        <li>Item 1</li>
+        <li>Item 2</li>
+        <li>Item 3</li>
+    </ul>
 </div>
 </body>
 </html>
