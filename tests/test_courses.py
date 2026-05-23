@@ -1,6 +1,7 @@
 from playwright.sync_api import expect, Page
 import pytest
 
+
 @pytest.mark.courses
 @pytest.mark.regression
 def test_empty_courses_list(chromium_page_with_state: Page):
