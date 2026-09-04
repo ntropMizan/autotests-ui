@@ -1,0 +1,8 @@
+pytest==8.3.4
+playwright==1.61.0
+allure-pytest==2.13.5
+allure-python-commons==2.13.5
+pytest-xdist==3.6.1
+pytest-rerunfailures==16.6
+python-dotenv==1.0.1
+faker==28.1.0
