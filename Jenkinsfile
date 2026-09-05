@@ -40,12 +40,21 @@ pipeline {
     post {
         always {
             sh '''
-                # 1. Архивируем результаты БЕЗ вложенной папки (критично для парсеров TMS)
+                # 1. Готовим архив для DoQA
                 if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
-                    echo "📦 Создаем архив результатов..."
+                    echo "📦 Создаем маркер формата Allure..."
+
+                    # КРИТИЧНО: Файл environment.properties сообщает парсеру DoQA, что это Allure
+                    cat > allure-results/environment.properties << EOF
+reportType=allure
+framework=pytest
+jenkinsBuild=${BUILD_NUMBER}
+EOF
+
+                    echo "📦 Архивируем результаты (файлы в корне ZIP)..."
                     cd allure-results && zip -r ../allure-results.zip . && cd ..
 
-                    echo "🚀 Отправляем в DoQA..."
+                    echo " Отправляем в DoQA..."
                     curl -v https://o7g195.doqa.app/api/autotests/report \
                         -H "Authorization: Bearer ${DOQA_TOKEN}" \
                         -F "token=${DOQA_TOKEN}" \
@@ -57,7 +66,7 @@ pipeline {
                     echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
                 fi
 
-                # 2. Генерация Allure-отчета через полный путь к CLI
+                # 2. Генерация Allure-отчета для Jenkins
                 if [ -d "allure-results" ]; then
                     /home/ubuntu/jenkins/tools/org.allurereport.jenkins.tools.AllureCommandlineInstallation/allure/bin/allure \
                         generate allure-results -c -o allure-report || echo "⚠️ Не удалось сгенерировать отчет"
