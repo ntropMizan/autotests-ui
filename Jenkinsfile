@@ -64,10 +64,10 @@ pipeline {
                 echo "📤 Отправляем отчет в DoQA..."
                 if [ -f "allure-results.zip" ]; then
                     curl -X POST https://o7g195.doqa.app/api/autotests/report \
-                        -F "token=43d1faef-c620-43b6-9078-db9de7f76311" \
-                        -F "spaceId=2" \
-                        -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "⚠️ Не удалось отправить отчет (проверьте токен или сеть)"
+                    -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
+                    -F "spaceId=2" \
+                    -F "file=@allure-results.zip" \
+                    -F "type=allure" || echo "⚠️ Не удалось отправить отчет (проверьте токен или сеть)"
                 else
                     echo "❌ Файл allure-results.zip не найден, отправка пропущена."
                 fi
