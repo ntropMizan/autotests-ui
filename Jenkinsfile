@@ -2,9 +2,10 @@ pipeline {
     agent { label 'docker-vm' }
 
     environment {
-        // Эти переменные берутся из настроек Jenkins или определяются здесь
         DOQA_URL = "https://o7g195.doqa.app"
         DOQA_SPACE_ID = "2"
+        // Укажите здесь точный ID вашего Secret Text
+        DOQA_TOKEN = credentials('DOQA_TOKEN')
     }
 
     stages {
