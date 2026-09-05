@@ -8,7 +8,6 @@ from pages.login_page import LoginPage
 @allure.feature("Login")
 @allure.story("Invalid credentials")
 @allure.title("Проверка ошибки при неверных email или пароле")
-@allure.id("TC-004")
 @allure.severity(allure.severity_level.CRITICAL)
 @pytest.mark.parametrize(
     'email, password',

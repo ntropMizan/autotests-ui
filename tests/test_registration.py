@@ -9,7 +9,6 @@ from pages.dashboard_page import DashboardPage
 @allure.feature("Registration")
 @allure.story("User registration")
 @allure.title("Успешная регистрация нового пользователя")
-@allure.id("TC-003")
 @allure.severity(allure.severity_level.BLOCKER)
 @pytest.mark.regression
 @pytest.mark.registration

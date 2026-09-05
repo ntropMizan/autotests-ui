@@ -6,46 +6,13 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Запускаем Playwright-контейнер..."
-                    cd /home/ubuntu/jenkins/workspace/playwright-test
-                    docker run --rm --ipc=host -v $PWD:/app \
+                    docker run --rm --ipc=host \
+                        -v ${WORKSPACE}:/app \
+                        -e DOQA_URL=https://o7g195.doqa.app \
+                        -e DOQA_TOKEN=43d1faef-c620-43b6-9078-db9de7f76311 \
+                        -e DOQA_SPACE_ID=2 \
                         my-playwright:latest \
-                        pytest --alluredir=/app/allure-results -v --maxfail=5
-                '''
-            }
-        }
-
-        stage('Prepare Allure Results') {
-            steps {
-                sh '''
-                    echo "📦 Подготавливаем Allure-результаты..."
-                    cd /home/ubuntu/jenkins/workspace/playwright-test
-
-                    sudo chown -R ubuntu:ubuntu allure-results/ || true
-                    chmod -R 755 allure-results/ || true
-
-                    cd allure-results
-                    rm -f testrun.json executor.json
-                    rm -rf history
-                    zip -r ../allure-results.zip *-result.json *-container.json
-                    cd ..
-                '''
-            }
-        }
-
-        stage('Allure Report Server') {
-            steps {
-                sh '''
-                    echo "🌐 Запускаем Allure-сервер для локального просмотра..."
-                    cd /home/ubuntu/jenkins/workspace/playwright-test
-
-                    # Останавливаем предыдущий сервер
-                    pkill -f "allure open" || true
-
-                    # Запускаем Allure-сервер на порту 8081
-                    nohup allure open allure-results --port 8081 > /tmp/allure-server.log 2>&1 &
-
-                    echo "✅ Allure-сервер запущен на http://192.168.252.2:8081"
-                    echo "📋 Логи: cat /tmp/allure-server.log"
+                        pytest . --cache-clear -v --maxfail=5 --doqa
                 '''
             }
         }
@@ -53,7 +20,17 @@ pipeline {
 
     post {
         always {
-            allure results: [[path: 'allure-results']]
+            sh '''
+                echo "📦 Генерируем Allure-отчёт для Jenkins..."
+                cd /home/ubuntu/jenkins/workspace/playwright-test
+                if [ -d "allure-results" ]; then
+                    allure generate allure-results -c -o allure-report
+                else
+                    echo "⚠️ Папка allure-results не найдена"
+                fi
+            '''
+
+            allure results: [[path: 'allure-report']]
         }
     }
 }

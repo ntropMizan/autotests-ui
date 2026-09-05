@@ -58,7 +58,6 @@ def test_create_course(courses_list_page: CoursesListPage, create_course_page: C
 @allure.feature("Course List")
 @allure.story("Empty course list")
 @allure.title("Просмотр пустого списка курсов")
-@allure.id("TC-002")
 @allure.severity(allure.severity_level.NORMAL)
 @pytest.mark.courses
 @pytest.mark.regression
