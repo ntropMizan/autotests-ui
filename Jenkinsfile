@@ -12,7 +12,10 @@ pipeline {
                             -e DOQA_TOKEN=${DOQA_TOKEN} \
                             -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
                             my-playwright:latest \
-                            pytest . --cache-clear -v --maxfail=5
+                            pytest . --cache-clear -v --maxfail=5 \
+                                --doqa-url=https://o7g195.doqa.app \
+                                --doqa-token=${DOQA_TOKEN} \
+                                --doqa-space-id=${DOQA_SPACE_ID}
                     '''
                 }
             }
