@@ -39,8 +39,6 @@ pipeline {
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
                         # ⚠️ ВАЖНО: НЕ удаляем executor.json и testrun.json!
                         # DoQA требует их наличия для корректного парсинга прогона.
-                        # rm -f allure-results/testrun.json allure-results/executor.json || true
-                        # rm -rf allure-results/history || true
 
                         # Заходим внутрь папки и зипуем СОДЕРЖИМОЕ (точка означает "текущая папка")
                         # Файлы будут лежать в корне архива, без лишней обертки allure-results/
@@ -61,15 +59,15 @@ pipeline {
     post {
         always {
             sh '''
-                echo " Отправляем отчет в DoQA..."
+                echo "📤 Отправляем отчет в DoQA (официальный API v4.0)..."
                 if [ -f "allure-results.zip" ]; then
-                    curl -X POST https://o7g195.doqa.app/api/runs/from-autotest-report \
-                        --header "Authorization: Bearer d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
+                    # Используем официальный эндпоинт /api/autotests/report
+                    # Токен передается ТОЛЬКО в теле формы, как указано в доке
+                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
                         -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
                         -F "spaceId=2" \
-                        -F "title=Jenkins Playwright Tests #${BUILD_NUMBER}" \
                         -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "️ Ошибка отправки в DoQA"
+                        -F "type=allure" || echo "⚠️ Ошибка отправки в DoQA"
                 else
                     echo "❌ Файл allure-results.zip не найден, отправка пропущена."
                 fi
