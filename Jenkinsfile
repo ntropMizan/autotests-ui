@@ -4,16 +4,17 @@ pipeline {
     stages {
         stage('Run Playwright Tests') {
             steps {
-                sh '''
-                    echo "🚀 Запускаем Playwright-контейнер..."
-                    docker run --rm --ipc=host \
-                        -v ${WORKSPACE}:/app \
-                        -e DOQA_URL=https://o7g195.doqa.app \
-                        -e DOQA_TOKEN=43d1faef-c620-43b6-9078-db9de7f76311 \
-                        -e DOQA_SPACE_ID=2 \
-                        my-playwright:latest \
-                        pytest . --cache-clear -v --maxfail=5 --doqa
-                '''
+                withCredentials([string(credentialsId: 'DOQA_TOKEN', variable: 'DOQA_TOKEN')]) {
+                    sh '''
+                        echo "🚀 Запускаем Playwright-контейнер..."
+                        docker run --rm --ipc=host \
+                            -v ${WORKSPACE}:/app \
+                            -e DOQA_TOKEN=${DOQA_TOKEN} \
+                            -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
+                            my-playwright:latest \
+                            pytest . --cache-clear -v --maxfail=5
+                    '''
+                }
             }
         }
     }
