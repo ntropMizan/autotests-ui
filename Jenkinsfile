@@ -46,12 +46,13 @@ pipeline {
                     echo "📦 Архивируем результаты..."
                     zip -r allure-results.zip allure-results/
 
-                    echo "🚀 Отправляем в DoQA через API..."
-                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
-                        -F "token=${DOQA_TOKEN}" \
-                        -F "spaceId=2" \
-                        -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "⚠️ Ошибка отправки в DoQA"
+                    echo "🚀 Отправляем Allure-результаты в DoQA..."
+                    curl -X POST https://o7g195.doqa.app/api/autotests/allure/import \
+                     -H "Authorization: Bearer ${DOQA_TOKEN}" \
+                    -F "spaceId=2" \
+                     -F "file=@allure-results.zip" \
+                      -F "testRunName=Jenkins Run #${BUILD_NUMBER}" \
+                         -v || echo "⚠️ Ошибка отправки"
                 else
                     echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
                 fi
