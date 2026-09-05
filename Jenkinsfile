@@ -2,7 +2,7 @@ pipeline {
     agent { label 'docker-vm' }
 
     environment {
-        // Убедитесь, что эти переменные настроены в Credentials > Secret Text в Jenkins
+        // Эти переменные берутся из настроек Jenkins или определяются здесь
         DOQA_URL = "https://o7g195.doqa.app"
         DOQA_SPACE_ID = "2"
     }
@@ -17,7 +17,7 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 sh '''
-                    echo "🧹 Очищаем воркспейс..."
+                    echo " Очищаем воркспейс..."
                     rm -rf .pytest_cache allure-results allure-report doqa-results
                     echo "✅ Очистка завершена"
                 '''
@@ -27,7 +27,7 @@ pipeline {
         stage('Run Playwright Tests with DoQA') {
             steps {
                 sh '''
-                    echo "🚀 Запускаем тесты с нативной интеграцией DoQA..."
+                    echo " Запускаем тесты с нативной интеграцией DoQA..."
 
                     docker run --rm --ipc=host -u $(id -u):$(id -g) \
                         -v ${WORKSPACE}:/app \
@@ -43,14 +43,12 @@ pipeline {
 
     post {
         always {
-            // Генерация локального Allure-отчета для просмотра в Jenkins
-            // doqa-pytest также может генерировать совместимые файлы,
-            # но если нужны классические allure-results, убедитесь что они создаются
             script {
+                // Генерация локального Allure-отчета для просмотра в Jenkins
                 if (fileExists('allure-results')) {
                     allure results: [[path: 'allure-results']]
                 } else {
-                    echo "️ Папка allure-results не найдена. Проверьте настройки doqa-pytest."
+                    echo "⚠️ Папка allure-results не найдена. Проверьте настройки doqa-pytest."
                 }
             }
         }
