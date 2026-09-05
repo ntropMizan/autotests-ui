@@ -4,12 +4,12 @@ pipeline {
     environment {
         DOQA_URL = "https://o7g195.doqa.app"
         DOQA_SPACE_ID = "2"
-        // Укажите здесь точный ID вашего Secret Text
+        // Токен берется из Jenkins Credentials (Secret Text)
         DOQA_TOKEN = credentials('DOQA_TOKEN')
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
             }
@@ -18,23 +18,19 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 sh '''
-                    echo " Очищаем воркспейс..."
+                    echo "🧹 Очищаем воркспейс..."
                     rm -rf .pytest_cache allure-results allure-report doqa-results
                     echo "✅ Очистка завершена"
                 '''
             }
         }
 
-        stage('Run Playwright Tests with DoQA') {
+        stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo " Запускаем тесты с нативной интеграцией DoQA..."
-
-                    docker run --rm --ipc=host -u $(id -u):$(id -g) \
+                    echo " Запускаем тесты в файловом режиме DoQA..."
+                    docker run --rm --network host -u $(id -u):$(id -g) \
                         -v ${WORKSPACE}:/app \
-                        -e DOQA_URL=${DOQA_URL} \
-                        -e DOQA_TOKEN=${DOQA_TOKEN} \
-                        -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
                         my-playwright:latest \
                         pytest . --cache-clear -v --maxfail=5
                 '''
@@ -44,18 +40,30 @@ pipeline {
 
     post {
         always {
-            script {
-                // Генерация локального Allure-отчета для просмотра в Jenkins
-                if (fileExists('allure-results')) {
-                    allure results: [[path: 'allure-results']]
-                } else {
-                    echo "⚠️ Папка allure-results не найдена. Проверьте настройки doqa-pytest."
-                }
-            }
-        }
+            sh '''
+                # Проверяем наличие результатов от плагина doqa-pytest
+                if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
+                    echo "📦 Архивируем результаты..."
+                    zip -r allure-results.zip allure-results/
 
-        failure {
-            echo "❌ Сборка завершилась с ошибкой. Результаты уже отправлены в DoQA (если сеть была доступна)."
+                    echo "🚀 Отправляем в DoQA через API..."
+                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
+                        -F "token=${DOQA_TOKEN}" \
+                        -F "spaceId=2" \
+                        -F "file=@allure-results.zip" \
+                        -F "type=allure" || echo "⚠️ Ошибка отправки в DoQA"
+                else
+                    echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
+                fi
+
+                # Генерация Allure-отчета для Jenkins
+                if [ -d "allure-results" ]; then
+                    allure generate allure-results -c -o allure-report
+                fi
+            '''
+
+            // Стандартная архивация артефактов Jenkins
+            archiveArtifacts artifacts: 'allure-results.zip', allowEmptyArchive: true
         }
     }
 }
