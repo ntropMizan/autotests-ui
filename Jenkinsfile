@@ -9,16 +9,14 @@ pipeline {
 
     stages {
         stage('Checkout SCM') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
         stage('Clean Workspace') {
             steps {
                 sh '''
                     echo "🧹 Очищаем воркспейс..."
-                    rm -rf .pytest_cache allure-results allure-report doqa-results doqa-results.zip
+                    rm -rf .pytest_cache allure-results allure-report doqa-results allure-results.zip
                     echo "✅ Очистка завершена"
                 '''
             }
@@ -27,7 +25,7 @@ pipeline {
         stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo "🚀 Запускаем тесты в файловом режиме DoQA..."
+                    echo "🚀 Запускаем тесты..."
                     docker run --rm --network host -u $(id -u):$(id -g) \
                         -v ${WORKSPACE}:/app \
                         my-playwright:latest \
@@ -40,30 +38,37 @@ pipeline {
     post {
         always {
             sh '''
-                # 1. Отправка НАТИВНЫХ результатов DoQA (без type=allure!)
-                if [ -d "doqa-results" ] && [ "$(ls -A doqa-results/*.json 2>/dev/null)" ]; then
-                    echo "📦 Архивируем нативные результаты..."
-                    cd doqa-results && zip -r ../doqa-results.zip . && cd ..
+                if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
+                    echo "📦 Добавляем маркер формата Allure..."
+                    # КРИТИЧНО: Без этого файла парсер DoQA отвергает архив
+                    cat > allure-results/environment.properties << EOF
+reportType=allure
+framework=pytest
+jenkinsBuild=${BUILD_NUMBER}
+EOF
+
+                    echo " Архивируем результаты..."
+                    cd allure-results && zip -r ../allure-results.zip . && cd ..
 
                     echo "🚀 Отправляем в DoQA..."
                     curl -v https://o7g195.doqa.app/api/autotests/report \
                         -H "Authorization: Bearer ${DOQA_TOKEN}" \
                         -F "token=${DOQA_TOKEN}" \
                         -F "spaceId=2" \
-                        -F "file=@doqa-results.zip" \
-                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "️ Ошибка отправки"
+                        -F "type=allure" \
+                        -F "file=@allure-results.zip" \
+                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "⚠️ Ошибка отправки"
                 else
-                    echo "❌ Нет JSON-файлов в doqa-results. Проверьте настройки плагина."
+                    echo "❌ Нет результатов для отправки"
                 fi
 
-                # 2. Генерация Allure-отчета для Jenkins (опционально)
+                # Генерация отчета для Jenkins
                 if [ -d "allure-results" ]; then
                     /home/ubuntu/jenkins/tools/org.allurereport.jenkins.tools.AllureCommandlineInstallation/allure/bin/allure \
-                        generate allure-results -c -o allure-report || echo "⚠️ Не удалось сгенерировать отчет"
+                        generate allure-results -c -o allure-report || echo "⚠️ Ошибка генерации Allure"
                 fi
             '''
-
-            archiveArtifacts artifacts: 'doqa-results.zip', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'allure-results.zip', allowEmptyArchive: true
         }
     }
 }
