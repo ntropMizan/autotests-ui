@@ -26,6 +26,10 @@ pipeline {
                     echo "📦 Подготавливаем Allure-результаты для DoQA..."
                     cd /home/ubuntu/jenkins/workspace/playwright-test
 
+                    # Проверяем содержимое
+                    echo "📂 Содержимое allure-results:"
+                    ls -la allure-results/ || echo "⚠️ Папка пуста!"
+
                     # Удаляем лишние файлы
                     rm -f allure-results/testrun.json || true
                     rm -f allure-results/executor.json || true
@@ -35,6 +39,11 @@ pipeline {
                     cd allure-results
                     zip -r ../allure-results.zip .
                     cd ..
+
+                    # Проверяем архив
+                    echo "📂 Проверяем архив:"
+                    ls -la allure-results.zip
+                    unzip -l allure-results.zip | head -20
 
                     echo "🚀 Отправляем отчет в DoQA через API..."
                     curl -X POST https://o7g195.doqa.app/api/autotests/report \
