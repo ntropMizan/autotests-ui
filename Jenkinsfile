@@ -11,7 +11,7 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 sh '''
-                    echo " Очищаем воркспейс от кэша и старых отчетов..."
+                    echo "🧹 Очищаем воркспейс от кэша и старых отчетов..."
                     rm -rf .pytest_cache allure-results allure-report
                     echo "✅ Очистка завершена"
                 '''
@@ -37,18 +37,18 @@ pipeline {
                     echo "📦 Архивируем результаты для DoQA..."
 
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-                        # Удаляем служебные файлы, которые могут мешать парсингу сырых данных
-                        rm -f allure-results/testrun.json allure-results/executor.json || true
-                        rm -rf allure-results/history || true
+                        # ⚠️ ВАЖНО: НЕ удаляем executor.json и testrun.json!
+                        # DoQA требует их наличия для корректного парсинга прогона.
+                        # rm -f allure-results/testrun.json allure-results/executor.json || true
+                        # rm -rf allure-results/history || true
 
-                        # ВАЖНО: Заходим внутрь папки и зипуем СОДЕРЖИМОЕ (точка означает "текущая папка")
-                        # Это гарантирует, что *-result.json и *-container.json будут лежать в корне архива
+                        # Заходим внутрь папки и зипуем СОДЕРЖИМОЕ (точка означает "текущая папка")
+                        # Файлы будут лежать в корне архива, без лишней обертки allure-results/
                         cd allure-results && zip -r ../allure-results.zip . && cd ..
 
-                        echo "✅ Архив allure-results.zip успешно создан (файлы в корне)"
+                        echo "✅ Архив allure-results.zip успешно создан (файлы в корне, служебные файлы сохранены)"
                     else
-                        echo "️ Папка allure-results пуста или отсутствует."
-                        echo "⚠️ Создаем фиктивный архив, чтобы curl не упал с ошибкой (26)."
+                        echo "⚠️ Папка allure-results пуста или отсутствует."
                         mkdir -p allure-results
                         echo '{"name": "empty", "status": "broken"}' > allure-results/empty-result.json
                         cd allure-results && zip -r ../allure-results.zip . && cd ..
@@ -61,19 +61,21 @@ pipeline {
     post {
         always {
             sh '''
-                echo "📤 Отправляем отчет в DoQA..."
+                echo " Отправляем отчет в DoQA..."
                 if [ -f "allure-results.zip" ]; then
-                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
-                    -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
-                    -F "spaceId=2" \
-                    -F "file=@allure-results.zip" \
-                    -F "type=allure" || echo "⚠️ Не удалось отправить отчет (проверьте токен или сеть)"
+                    curl -X POST https://o7g195.doqa.app/api/runs/from-autotest-report \
+                        --header "Authorization: Bearer d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
+                        -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
+                        -F "spaceId=2" \
+                        -F "title=Jenkins Playwright Tests #${BUILD_NUMBER}" \
+                        -F "file=@allure-results.zip" \
+                        -F "type=allure" || echo "️ Ошибка отправки в DoQA"
                 else
                     echo "❌ Файл allure-results.zip не найден, отправка пропущена."
                 fi
             '''
 
-            // Показываем красивый отчет прямо в интерфейсе Jenkins
+            // Генерация отчета для интерфейса Jenkins
             allure results: [[path: 'allure-results']]
         }
 
