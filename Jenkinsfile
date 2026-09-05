@@ -4,7 +4,6 @@ pipeline {
     environment {
         DOQA_URL = "https://o7g195.doqa.app"
         DOQA_SPACE_ID = "2"
-        // Токен берется из Jenkins Credentials (Secret Text)
         DOQA_TOKEN = credentials('DOQA_TOKEN')
     }
 
@@ -19,7 +18,7 @@ pipeline {
             steps {
                 sh '''
                     echo "🧹 Очищаем воркспейс..."
-                    rm -rf .pytest_cache allure-results allure-report doqa-results
+                    rm -rf .pytest_cache allure-results allure-report doqa-results allure-results.zip
                     echo "✅ Очистка завершена"
                 '''
             }
@@ -28,7 +27,7 @@ pipeline {
         stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo " Запускаем тесты в файловом режиме DoQA..."
+                    echo "🚀 Запускаем тесты в файловом режиме DoQA..."
                     docker run --rm --network host -u $(id -u):$(id -g) \
                         -v ${WORKSPACE}:/app \
                         my-playwright:latest \
@@ -41,29 +40,28 @@ pipeline {
     post {
         always {
             sh '''
-                # Проверяем наличие результатов от плагина doqa-pytest
+                # 1. Архивируем результаты БЕЗ вложенной папки (критично для парсеров TMS)
                 if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
-                    echo "📦 Архивируем результаты..."
-                    zip -r allure-results.zip allure-results/
+                    echo "📦 Создаем архив результатов..."
+                    cd allure-results && zip -r ../allure-results.zip . && cd ..
 
-                    echo "🚀 Отправляем Allure-результаты в DoQA..."
-                    curl -X POST https://o7g195.doqa.app/api/autotests/allure/import \
-                     -H "Authorization: Bearer ${DOQA_TOKEN}" \
-                    -F "spaceId=2" \
-                     -F "file=@allure-results.zip" \
-                      -F "testRunName=Jenkins Run #${BUILD_NUMBER}" \
-                         -v || echo "⚠️ Ошибка отправки"
+                    echo "🚀 Отправляем в DoQA..."
+                    curl -v https://o7g195.doqa.app/api/autotests/report \
+                        -H "Authorization: Bearer ${DOQA_TOKEN}" \
+                        -F "spaceId=2" \
+                        -F "file=@allure-results.zip" \
+                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "️ Ошибка отправки в DoQA"
                 else
                     echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
                 fi
 
-                # Генерация Allure-отчета для Jenkins
+                # 2. Генерация Allure-отчета через полный путь к CLI
                 if [ -d "allure-results" ]; then
-                    allure generate allure-results -c -o allure-report
+                    /home/ubuntu/jenkins/tools/org.allurereport.jenkins.tools.AllureCommandlineInstallation/allure/bin/allure \
+                        generate allure-results -c -o allure-report || echo "⚠️ Не удалось сгенерировать отчет"
                 fi
             '''
 
-            // Стандартная архивация артефактов Jenkins
             archiveArtifacts artifacts: 'allure-results.zip', allowEmptyArchive: true
         }
     }
