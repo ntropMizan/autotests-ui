@@ -1,6 +1,12 @@
 pipeline {
     agent { label 'docker-vm' }
 
+    environment {
+        // Убедитесь, что эти переменные настроены в Credentials > Secret Text в Jenkins
+        DOQA_URL = "https://o7g195.doqa.app"
+        DOQA_SPACE_ID = "2"
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -11,46 +17,25 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 sh '''
-                    echo "🧹 Очищаем воркспейс от кэша и старых отчетов..."
-                    rm -rf .pytest_cache allure-results allure-report
+                    echo "🧹 Очищаем воркспейс..."
+                    rm -rf .pytest_cache allure-results allure-report doqa-results
                     echo "✅ Очистка завершена"
                 '''
             }
         }
 
-        stage('Run Playwright Tests') {
+        stage('Run Playwright Tests with DoQA') {
             steps {
                 sh '''
-                    echo "🚀 Запускаем Playwright-контейнер..."
+                    echo "🚀 Запускаем тесты с нативной интеграцией DoQA..."
 
-                    # Флаг -u $(id -u):$(id -g) решает проблему с правами доступа
-                    docker run --rm --ipc=host -u $(id -u):$(id -g) -v ${WORKSPACE}:/app \
+                    docker run --rm --ipc=host -u $(id -u):$(id -g) \
+                        -v ${WORKSPACE}:/app \
+                        -e DOQA_URL=${DOQA_URL} \
+                        -e DOQA_TOKEN=${DOQA_TOKEN} \
+                        -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
                         my-playwright:latest \
-                        pytest . --alluredir=/app/allure-results --cache-clear -v --maxfail=5
-                '''
-            }
-        }
-
-        stage('Prepare Allure Results') {
-            steps {
-                sh '''
-                    echo "📦 Архивируем результаты для DoQA..."
-
-                    if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-                        # ⚠️ ВАЖНО: НЕ удаляем executor.json и testrun.json!
-                        # DoQA 4.0 требует их наличия для корректного парсинга прогона.
-
-                        # ✅ ПРАВИЛЬНАЯ КОМАНДА ДЛЯ DOQA 4.0:
-                        # Зипуем САМУ ПАПКУ allure-results/, чтобы она была внутри архива
-                        zip -r allure-results.zip allure-results/
-
-                        echo "✅ Архив allure-results.zip успешно создан (папка allure-results/ внутри)"
-                    else
-                        echo "⚠️ Папка allure-results пуста или отсутствует."
-                        mkdir -p allure-results
-                        echo '{"name": "empty", "status": "broken"}' > allure-results/empty-result.json
-                        zip -r allure-results.zip allure-results/
-                    fi
+                        pytest . --cache-clear -v --maxfail=5
                 '''
             }
         }
@@ -58,27 +43,20 @@ pipeline {
 
     post {
         always {
-            sh '''
-                echo "📤 Отправляем отчет в DoQA (официальный API v4.0)..."
-                if [ -f "allure-results.zip" ]; then
-                    # Используем официальный эндпоинт /api/autotests/report
-                    # Токен передается ТОЛЬКО в теле формы, как указано в доке
-                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
-                        -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
-                        -F "spaceId=2" \
-                        -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "️ Ошибка отправки в DoQA"
-                else
-                    echo "❌ Файл allure-results.zip не найден, отправка пропущена."
-                fi
-            '''
-
-            // Генерация отчета для интерфейса Jenkins
-            allure results: [[path: 'allure-results']]
+            // Генерация локального Allure-отчета для просмотра в Jenkins
+            // doqa-pytest также может генерировать совместимые файлы,
+            # но если нужны классические allure-results, убедитесь что они создаются
+            script {
+                if (fileExists('allure-results')) {
+                    allure results: [[path: 'allure-results']]
+                } else {
+                    echo "️ Папка allure-results не найдена. Проверьте настройки doqa-pytest."
+                }
+            }
         }
 
         failure {
-            echo "❌ Сборка завершилась с ошибкой. Проверьте логи выше."
+            echo "❌ Сборка завершилась с ошибкой. Результаты уже отправлены в DoQA (если сеть была доступна)."
         }
     }
 }
