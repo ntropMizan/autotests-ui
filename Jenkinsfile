@@ -12,7 +12,7 @@ pipeline {
                             -e DOQA_TOKEN=${DOQA_TOKEN} \
                             -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
                             my-playwright:latest \
-                            pytest . --cache-clear -v --maxfail=5
+                            pytest . --alluredir=allure-results -v
                     '''
                 }
             }
