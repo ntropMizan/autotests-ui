@@ -18,7 +18,7 @@ pipeline {
             steps {
                 sh '''
                     echo "🧹 Очищаем воркспейс..."
-                    rm -rf .pytest_cache allure-results allure-report doqa-results allure-results.zip
+                    rm -rf .pytest_cache allure-results allure-report doqa-results doqa-results.zip
                     echo "✅ Очистка завершена"
                 '''
             }
@@ -40,40 +40,30 @@ pipeline {
     post {
         always {
             sh '''
-                # 1. Готовим архив для DoQA
-                if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
-                    echo "📦 Создаем маркер формата Allure..."
+                # 1. Отправка НАТИВНЫХ результатов DoQA (без type=allure!)
+                if [ -d "doqa-results" ] && [ "$(ls -A doqa-results/*.json 2>/dev/null)" ]; then
+                    echo "📦 Архивируем нативные результаты..."
+                    cd doqa-results && zip -r ../doqa-results.zip . && cd ..
 
-                    # КРИТИЧНО: Файл environment.properties сообщает парсеру DoQA, что это Allure
-                    cat > allure-results/environment.properties << EOF
-reportType=allure
-framework=pytest
-jenkinsBuild=${BUILD_NUMBER}
-EOF
-
-                    echo "📦 Архивируем результаты (файлы в корне ZIP)..."
-                    cd allure-results && zip -r ../allure-results.zip . && cd ..
-
-                    echo " Отправляем в DoQA..."
+                    echo "🚀 Отправляем в DoQA..."
                     curl -v https://o7g195.doqa.app/api/autotests/report \
                         -H "Authorization: Bearer ${DOQA_TOKEN}" \
                         -F "token=${DOQA_TOKEN}" \
                         -F "spaceId=2" \
-                        -F "type=allure" \
-                        -F "file=@allure-results.zip" \
-                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "⚠️ Ошибка отправки"
+                        -F "file=@doqa-results.zip" \
+                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "️ Ошибка отправки"
                 else
-                    echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
+                    echo "❌ Нет JSON-файлов в doqa-results. Проверьте настройки плагина."
                 fi
 
-                # 2. Генерация Allure-отчета для Jenkins
+                # 2. Генерация Allure-отчета для Jenkins (опционально)
                 if [ -d "allure-results" ]; then
                     /home/ubuntu/jenkins/tools/org.allurereport.jenkins.tools.AllureCommandlineInstallation/allure/bin/allure \
                         generate allure-results -c -o allure-report || echo "⚠️ Не удалось сгенерировать отчет"
                 fi
             '''
 
-            archiveArtifacts artifacts: 'allure-results.zip', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'doqa-results.zip', allowEmptyArchive: true
         }
     }
 }
