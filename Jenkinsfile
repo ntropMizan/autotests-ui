@@ -48,9 +48,11 @@ pipeline {
                     echo "🚀 Отправляем в DoQA..."
                     curl -v https://o7g195.doqa.app/api/autotests/report \
                         -H "Authorization: Bearer ${DOQA_TOKEN}" \
+                        -F "token=${DOQA_TOKEN}" \
                         -F "spaceId=2" \
+                        -F "type=allure" \
                         -F "file=@allure-results.zip" \
-                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "️ Ошибка отправки в DoQA"
+                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "⚠️ Ошибка отправки"
                 else
                     echo "❌ Нет JSON-файлов в allure-results. Проверьте настройки плагина."
                 fi
