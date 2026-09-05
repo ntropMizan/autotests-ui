@@ -1,35 +1,51 @@
 pipeline {
     agent { label 'docker-vm' }
 
-    environment {
-        DOQA_URL = "https://o7g195.doqa.app"
-        DOQA_SPACE_ID = "2"
-        DOQA_TOKEN = credentials('DOQA_TOKEN')
-    }
-
     stages {
-        stage('Checkout SCM') {
-            steps { checkout scm }
-        }
-
-        stage('Clean Workspace') {
+        stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo "🧹 Очищаем воркспейс..."
-                    rm -rf .pytest_cache allure-results allure-report doqa-results allure-results.zip
-                    echo "✅ Очистка завершена"
+                    echo "🚀 Запускаем Playwright-контейнер..."
+                    cd /home/ubuntu/jenkins/workspace/playwright-test
+                    docker run --rm --ipc=host -v $PWD:/app \
+                        my-playwright:latest \
+                        pytest --alluredir=/app/allure-results -v --maxfail=5
                 '''
             }
         }
 
-        stage('Run Playwright Tests') {
+        stage('Prepare Allure Results') {
             steps {
                 sh '''
-                    echo "🚀 Запускаем тесты..."
-                    docker run --rm --network host -u $(id -u):$(id -g) \
-                        -v ${WORKSPACE}:/app \
-                        my-playwright:latest \
-                        pytest . --cache-clear -v --maxfail=5
+                    echo "📦 Подготавливаем Allure-результаты..."
+                    cd /home/ubuntu/jenkins/workspace/playwright-test
+
+                    sudo chown -R ubuntu:ubuntu allure-results/ || true
+                    chmod -R 755 allure-results/ || true
+
+                    cd allure-results
+                    rm -f testrun.json executor.json
+                    rm -rf history
+                    zip -r ../allure-results.zip *-result.json *-container.json
+                    cd ..
+                '''
+            }
+        }
+
+        stage('Allure Report Server') {
+            steps {
+                sh '''
+                    echo "🌐 Запускаем Allure-сервер для локального просмотра..."
+                    cd /home/ubuntu/jenkins/workspace/playwright-test
+
+                    # Останавливаем предыдущий сервер
+                    pkill -f "allure open" || true
+
+                    # Запускаем Allure-сервер на порту 8081
+                    nohup allure open allure-results --port 8081 > /tmp/allure-server.log 2>&1 &
+
+                    echo "✅ Allure-сервер запущен на http://192.168.252.2:8081"
+                    echo "📋 Логи: cat /tmp/allure-server.log"
                 '''
             }
         }
@@ -37,38 +53,7 @@ pipeline {
 
     post {
         always {
-            sh '''
-                if [ -d "allure-results" ] && [ "$(ls -A allure-results/*-result.json 2>/dev/null)" ]; then
-                    echo "📦 Добавляем маркер формата Allure..."
-                    # КРИТИЧНО: Без этого файла парсер DoQA отвергает архив
-                    cat > allure-results/environment.properties << EOF
-reportType=allure
-framework=pytest
-jenkinsBuild=${BUILD_NUMBER}
-EOF
-
-                    echo " Архивируем результаты..."
-                    cd allure-results && zip -r ../allure-results.zip . && cd ..
-
-                    echo "🚀 Отправляем в DoQA..."
-                    curl -v https://o7g195.doqa.app/api/autotests/report \
-                        -H "Authorization: Bearer ${DOQA_TOKEN}" \
-                        -F "token=${DOQA_TOKEN}" \
-                        -F "spaceId=2" \
-                        -F "type=allure" \
-                        -F "file=@allure-results.zip" \
-                        -F "testRunName=Jenkins Run #${BUILD_NUMBER}" || echo "⚠️ Ошибка отправки"
-                else
-                    echo "❌ Нет результатов для отправки"
-                fi
-
-                # Генерация отчета для Jenkins
-                if [ -d "allure-results" ]; then
-                    /home/ubuntu/jenkins/tools/org.allurereport.jenkins.tools.AllureCommandlineInstallation/allure/bin/allure \
-                        generate allure-results -c -o allure-report || echo "⚠️ Ошибка генерации Allure"
-                fi
-            '''
-            archiveArtifacts artifacts: 'allure-results.zip', allowEmptyArchive: true
+            allure results: [[path: 'allure-results']]
         }
     }
 }
