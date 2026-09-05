@@ -38,18 +38,18 @@ pipeline {
 
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
                         # ⚠️ ВАЖНО: НЕ удаляем executor.json и testrun.json!
-                        # DoQA требует их наличия для корректного парсинга прогона.
+                        # DoQA 4.0 требует их наличия для корректного парсинга прогона.
 
-                        # Заходим внутрь папки и зипуем СОДЕРЖИМОЕ (точка означает "текущая папка")
-                        # Файлы будут лежать в корне архива, без лишней обертки allure-results/
-                        cd allure-results && zip -r ../allure-results.zip . && cd ..
+                        # ✅ ПРАВИЛЬНАЯ КОМАНДА ДЛЯ DOQA 4.0:
+                        # Зипуем САМУ ПАПКУ allure-results/, чтобы она была внутри архива
+                        zip -r allure-results.zip allure-results/
 
-                        echo "✅ Архив allure-results.zip успешно создан (файлы в корне, служебные файлы сохранены)"
+                        echo "✅ Архив allure-results.zip успешно создан (папка allure-results/ внутри)"
                     else
                         echo "⚠️ Папка allure-results пуста или отсутствует."
                         mkdir -p allure-results
                         echo '{"name": "empty", "status": "broken"}' > allure-results/empty-result.json
-                        cd allure-results && zip -r ../allure-results.zip . && cd ..
+                        zip -r allure-results.zip allure-results/
                     fi
                 '''
             }
@@ -67,7 +67,7 @@ pipeline {
                         -F "token=d5c53a9c-bd1c-41e9-bdb0-9766864bb207" \
                         -F "spaceId=2" \
                         -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "⚠️ Ошибка отправки в DoQA"
+                        -F "type=allure" || echo "️ Ошибка отправки в DoQA"
                 else
                     echo "❌ Файл allure-results.zip не найден, отправка пропущена."
                 fi
