@@ -2,12 +2,12 @@ FROM mcr.microsoft.com/playwright/python:v1.61.0-noble
 
 WORKDIR /app
 
-# Копируем только requirements.txt для кэширования слоя зависимостей
+# Устанавливаем зависимости Python
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Устанавливаем Python-зависимости + doqa-pytest
-# Браузеры уже есть в базовом образе, эта команда НЕ нужна!
-RUN pip install --no-cache-dir -r requirements.txt doqa-pytest
+# Скачиваем и устанавливаем официальную утилиту doqa
+RUN curl -O https://doqa.app/downloads/doqa && chmod +x doqa && mv doqa /usr/local/bin/
 
-# Копируем исходный код проекта
+# Копируем тесты
 COPY . .

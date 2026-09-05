@@ -12,10 +12,38 @@ pipeline {
                             -e DOQA_TOKEN=${DOQA_TOKEN} \
                             -e DOQA_SPACE_ID=${DOQA_SPACE_ID} \
                             my-playwright:latest \
-                            pytest . --alluredir=allure-results -v \
-                                --doqa-url=https://o7g195.doqa.app \
-                                --doqa-token=${DOQA_TOKEN} \
-                                --doqa-space-id=${DOQA_SPACE_ID}
+                            pytest . --alluredir=allure-results -v
+                    '''
+                }
+            }
+        }
+
+        stage('Prepare and Send Allure Results') {
+            steps {
+                withCredentials([string(credentialsId: 'DOQA_TOKEN', variable: 'DOQA_TOKEN')]) {
+                    sh '''
+                        echo "📦 Подготавливаем и отправляем Allure-результаты..."
+                        cd /home/ubuntu/jenkins/workspace/playwright-test
+
+                        # Очистка от лишних файлов
+                        rm -f allure-results/testrun.json || true
+                        rm -f allure-results/executor.json || true
+                        rm -rf allure-results/history || true
+
+                        # Создание архива
+                        cd allure-results
+                        zip -r ../allure-results.zip .
+                        cd ..
+
+                        # Отправка отчета через официальную утилиту doqa
+                        docker run --rm \
+                            -v ${WORKSPACE}:/app \
+                            my-playwright:latest \
+                            doqa report https://o7g195.doqa.app/api/autotests/report \
+                                ${DOQA_SPACE_ID} \
+                                ${DOQA_TOKEN} \
+                                /app/allure-results.zip \
+                                allure
                     '''
                 }
             }
@@ -29,11 +57,8 @@ pipeline {
                 cd /home/ubuntu/jenkins/workspace/playwright-test
                 if [ -d "allure-results" ]; then
                     allure generate allure-results -c -o allure-report
-                else
-                    echo "⚠️ Папка allure-results не найдена"
                 fi
             '''
-
             allure results: [[path: 'allure-report']]
         }
     }
