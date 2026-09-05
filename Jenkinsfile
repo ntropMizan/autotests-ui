@@ -12,7 +12,6 @@ pipeline {
             steps {
                 sh '''
                     echo "🧹 Очищаем воркспейс от кэша и старых отчетов..."
-                    # Удаляем кэш pytest и прошлые результаты Allure
                     rm -rf .pytest_cache allure-results allure-report
                     echo "✅ Очистка завершена"
                 '''
@@ -22,9 +21,9 @@ pipeline {
         stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo "🚀 Запускаем Playwright-контейнер..."
+                    echo " Запускаем Playwright-контейнер..."
 
-                    # ВАЖНО: Флаг -u $(id -u):$(id -g) решает проблему с правами доступа (Operation not permitted)
+                    # Флаг -u $(id -u):$(id -g) решает проблему с правами (Operation not permitted)
                     docker run --rm --ipc=host -u $(id -u):$(id -g) -v ${WORKSPACE}:/app \
                         my-playwright:latest \
                         pytest . --alluredir=/app/allure-results --cache-clear -v --maxfail=5
@@ -38,21 +37,21 @@ pipeline {
                     echo "📦 Архивируем результаты для DoQA..."
 
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-                        cd allure-results
-                        # Удаляем лишние служебные файлы, если они есть
-                        rm -f testrun.json executor.json || true
-                        rm -rf history || true
+                        # Удаляем служебные файлы, которые не нужны в сыром отчете
+                        rm -f allure-results/testrun.json allure-results/executor.json || true
+                        rm -rf allure-results/history || true
 
-                        # Архивируем всё содержимое папки результатов
-                        zip -r ../allure-results.zip .
-                        cd ..
-                        echo "✅ Архив allure-results.zip успешно создан"
+                        # ВАЖНО: Зипуем САМУ ПАПКУ allure-results/, чтобы она была корнем архива
+                        # Это соответствует требованию DoQA: "Allure (сырые данные... помещенные в архив)"
+                        zip -r allure-results.zip allure-results/
+
+                        echo "✅ Архив allure-results.zip успешно создан с правильной структурой"
                     else
                         echo "⚠️ Папка allure-results пуста или отсутствует."
-                        echo "⚠️ Создаем фиктивный архив, чтобы пайплайн не упал на этапе curl."
+                        echo "⚠️ Создаем фиктивный архив, чтобы curl не упал с ошибкой (26)."
                         mkdir -p allure-results
-                        echo '{"status": "empty", "message": "No tests were executed or collected"}' > allure-results/empty.json
-                        zip -r allure-results.zip allure-results
+                        echo '{"status": "empty", "message": "No tests were executed"}' > allure-results/empty.json
+                        zip -r allure-results.zip allure-results/
                     fi
                 '''
             }
