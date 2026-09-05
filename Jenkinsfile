@@ -11,7 +11,7 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 sh '''
-                    echo "🧹 Очищаем воркспейс от кэша и старых отчетов..."
+                    echo " Очищаем воркспейс от кэша и старых отчетов..."
                     rm -rf .pytest_cache allure-results allure-report
                     echo "✅ Очистка завершена"
                 '''
@@ -21,9 +21,9 @@ pipeline {
         stage('Run Playwright Tests') {
             steps {
                 sh '''
-                    echo " Запускаем Playwright-контейнер..."
+                    echo "🚀 Запускаем Playwright-контейнер..."
 
-                    # Флаг -u $(id -u):$(id -g) решает проблему с правами (Operation not permitted)
+                    # Флаг -u $(id -u):$(id -g) решает проблему с правами доступа
                     docker run --rm --ipc=host -u $(id -u):$(id -g) -v ${WORKSPACE}:/app \
                         my-playwright:latest \
                         pytest . --alluredir=/app/allure-results --cache-clear -v --maxfail=5
@@ -37,21 +37,21 @@ pipeline {
                     echo "📦 Архивируем результаты для DoQA..."
 
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-                        # Удаляем служебные файлы, которые не нужны в сыром отчете
+                        # Удаляем служебные файлы, которые могут мешать парсингу сырых данных
                         rm -f allure-results/testrun.json allure-results/executor.json || true
                         rm -rf allure-results/history || true
 
-                        # ВАЖНО: Зипуем САМУ ПАПКУ allure-results/, чтобы она была корнем архива
-                        # Это соответствует требованию DoQA: "Allure (сырые данные... помещенные в архив)"
-                        zip -r allure-results.zip allure-results/
+                        # ВАЖНО: Заходим внутрь папки и зипуем СОДЕРЖИМОЕ (точка означает "текущая папка")
+                        # Это гарантирует, что *-result.json и *-container.json будут лежать в корне архива
+                        cd allure-results && zip -r ../allure-results.zip . && cd ..
 
-                        echo "✅ Архив allure-results.zip успешно создан с правильной структурой"
+                        echo "✅ Архив allure-results.zip успешно создан (файлы в корне)"
                     else
-                        echo "⚠️ Папка allure-results пуста или отсутствует."
+                        echo "️ Папка allure-results пуста или отсутствует."
                         echo "⚠️ Создаем фиктивный архив, чтобы curl не упал с ошибкой (26)."
                         mkdir -p allure-results
-                        echo '{"status": "empty", "message": "No tests were executed"}' > allure-results/empty.json
-                        zip -r allure-results.zip allure-results/
+                        echo '{"name": "empty", "status": "broken"}' > allure-results/empty-result.json
+                        cd allure-results && zip -r ../allure-results.zip . && cd ..
                     fi
                 '''
             }
