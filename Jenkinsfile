@@ -4,8 +4,18 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Явно клонируем код, чтобы гарантировать его наличие в воркспейсе
                 checkout scm
+            }
+        }
+
+        stage('Clean Workspace') {
+            steps {
+                sh '''
+                    echo "🧹 Очищаем воркспейс от кэша и старых отчетов..."
+                    # Удаляем кэш pytest и прошлые результаты Allure
+                    rm -rf .pytest_cache allure-results allure-report
+                    echo "✅ Очистка завершена"
+                '''
             }
         }
 
@@ -13,11 +23,11 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Запускаем Playwright-контейнер..."
-                    # Используем ${WORKSPACE} вместо хардкода пути
-                    # Если тесты лежат в папке tests/, замените "pytest ." на "pytest tests/"
-                    docker run --rm --ipc=host -v ${WORKSPACE}:/app \
+
+                    # ВАЖНО: Флаг -u $(id -u):$(id -g) решает проблему с правами доступа (Operation not permitted)
+                    docker run --rm --ipc=host -u $(id -u):$(id -g) -v ${WORKSPACE}:/app \
                         my-playwright:latest \
-                        pytest . --alluredir=/app/allure-results -v --maxfail=5
+                        pytest . --alluredir=/app/allure-results --cache-clear -v --maxfail=5
                 '''
             }
         }
@@ -25,25 +35,23 @@ pipeline {
         stage('Prepare Allure Results') {
             steps {
                 sh '''
-                    echo "📦 Подготавливаем Allure-результаты для DoQA..."
+                    echo "📦 Архивируем результаты для DoQA..."
 
                     if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-                        sudo chown -R ubuntu:ubuntu allure-results/ || true
-                        chmod -R 755 allure-results/ || true
-
                         cd allure-results
+                        # Удаляем лишние служебные файлы, если они есть
                         rm -f testrun.json executor.json || true
                         rm -rf history || true
 
-                        # Архивируем ВСЁ содержимое папки, чтобы избежать ошибки zip при отсутствии файлов по маске
+                        # Архивируем всё содержимое папки результатов
                         zip -r ../allure-results.zip .
                         cd ..
                         echo "✅ Архив allure-results.zip успешно создан"
                     else
-                        echo "⚠️ Директория allure-results пуста или не существует."
-                        echo "⚠️ Создаем фиктивный архив, чтобы curl не упал с ошибкой 26."
+                        echo "⚠️ Папка allure-results пуста или отсутствует."
+                        echo "⚠️ Создаем фиктивный архив, чтобы пайплайн не упал на этапе curl."
                         mkdir -p allure-results
-                        echo '{"empty": true, "message": "No tests were executed"}' > allure-results/empty.json
+                        echo '{"status": "empty", "message": "No tests were executed or collected"}' > allure-results/empty.json
                         zip -r allure-results.zip allure-results
                     fi
                 '''
@@ -60,15 +68,18 @@ pipeline {
                         -F "token=43d1faef-c620-43b6-9078-db9de7f76311" \
                         -F "spaceId=2" \
                         -F "file=@allure-results.zip" \
-                        -F "type=allure" || echo "⚠️ Ошибка при отправке в DoQA (проверьте лог curl)"
-                    echo "✅ Отчет отправлен в DoQA!"
+                        -F "type=allure" || echo "⚠️ Не удалось отправить отчет (проверьте токен или сеть)"
                 else
                     echo "❌ Файл allure-results.zip не найден, отправка пропущена."
                 fi
             '''
 
-            // Показываем отчет прямо в Jenkins, даже если отправка в DoQA не удалась
+            // Показываем красивый отчет прямо в интерфейсе Jenkins
             allure results: [[path: 'allure-results']]
+        }
+
+        failure {
+            echo "❌ Сборка завершилась с ошибкой. Проверьте логи выше."
         }
     }
 }
