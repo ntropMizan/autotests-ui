@@ -1,7 +1,0 @@
-"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
-"","594","Просмотр пустого списка курсов","tests","Sat Sep 05 16:48:28 MSK 2026","passed","Sat Sep 05 16:48:29 MSK 2026","","test_courses","",""
-"","1945","Успешная регистрация нового пользователя","tests","Sat Sep 05 16:48:29 MSK 2026","passed","Sat Sep 05 16:48:31 MSK 2026","","test_registration","",""
-"","1343","Проверка ошибки при неверных email или пароле","tests","Sat Sep 05 16:48:22 MSK 2026","passed","Sat Sep 05 16:48:24 MSK 2026","","test_authorization","",""
-"","1218","Проверка ошибки при неверных email или пароле","tests","Sat Sep 05 16:48:24 MSK 2026","passed","Sat Sep 05 16:48:25 MSK 2026","","test_authorization","",""
-"","1847","Создание нового курса","tests","Sat Sep 05 16:48:26 MSK 2026","passed","Sat Sep 05 16:48:28 MSK 2026","","test_courses","",""
-"","1606","Проверка ошибки при неверных email или пароле","tests","Sat Sep 05 16:48:21 MSK 2026","passed","Sat Sep 05 16:48:22 MSK 2026","","test_authorization","",""
