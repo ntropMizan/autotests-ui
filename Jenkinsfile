@@ -2,16 +2,11 @@ pipeline {
     agent { label 'docker-vm' }
 
     stages {
-        stage('Clean workspace') {
-            steps {
-                cleanWs()
-            }
-        }
-
         stage('Run Playwright Tests') {
             steps {
                 sh '''
                     echo "🚀 Запускаем Playwright-контейнер..."
+                    cd /home/ubuntu/jenkins/workspace/playwright-test
                     docker run --rm --ipc=host -v $PWD:/app \
                         my-playwright:latest \
                         pytest --alluredir=/app/allure-results -v --maxfail=5
@@ -25,16 +20,12 @@ pipeline {
                     echo "📦 Подготавливаем Allure-результаты для DoQA..."
                     cd /home/ubuntu/jenkins/workspace/playwright-test
 
-                    # Исправляем права
                     sudo chown -R ubuntu:ubuntu allure-results/ || true
                     chmod -R 755 allure-results/ || true
 
-                    # Удаляем лишние файлы
                     cd allure-results
                     rm -f testrun.json executor.json
                     rm -rf history
-
-                    # Упаковываем только нужные файлы
                     zip -r ../allure-results.zip *-result.json *-container.json
                     cd ..
                 '''
