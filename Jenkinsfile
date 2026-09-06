@@ -17,48 +17,41 @@ pipeline {
                 }
             }
         }
-
-        stage('Prepare and Send Allure Results') {
-            steps {
-                withCredentials([string(credentialsId: 'DOQA_TOKEN', variable: 'DOQA_TOKEN')]) {
-                    sh '''
-                        echo "📦 Подготавливаем и отправляем Allure-результаты..."
-                        cd /home/ubuntu/jenkins/workspace/playwright-test
-
-                        # Очистка от лишних файлов
-                        rm -f allure-results/testrun.json || true
-                        rm -f allure-results/executor.json || true
-                        rm -rf allure-results/history || true
-
-                        # Создание архива
-                        cd allure-results
-                        zip -r ../allure-results.zip .
-                        cd ..
-
-                        # Отправка отчета через официальную утилиту doqa
-                        docker run --rm \
-                            -v ${WORKSPACE}:/app \
-                            my-playwright:latest \
-                            doqa report https://o7g195.doqa.app/api/autotests/report \
-                                ${DOQA_SPACE_ID} \
-                                ${DOQA_TOKEN} \
-                                /app/allure-results.zip \
-                                allure
-                    '''
-                }
-            }
-        }
     }
 
     post {
         always {
-            sh '''
-                echo "📦 Генерируем Allure-отчёт для Jenkins..."
-                cd /home/ubuntu/jenkins/workspace/playwright-test
-                if [ -d "allure-results" ]; then
-                    allure generate allure-results -c -o allure-report
-                fi
-            '''
+            withCredentials([string(credentialsId: 'DOQA_TOKEN', variable: 'DOQA_TOKEN')]) {
+                sh '''
+                    echo "📦 Подготавливаем Allure-результаты для DoQA..."
+                    cd /home/ubuntu/jenkins/workspace/playwright-test
+
+                    # Удаляем лишние файлы
+                    rm -f allure-results/testrun.json || true
+                    rm -f allure-results/executor.json || true
+                    rm -rf allure-results/history || true
+
+                    # Упаковываем только содержимое
+                    cd allure-results
+                    zip -r ../allure-results.zip .
+                    cd ..
+
+                    echo "🚀 Отправляем отчет в DoQA через API..."
+                    curl -X POST https://o7g195.doqa.app/api/autotests/report \
+                        -F "token=${DOQA_TOKEN}" \
+                        -F "spaceId=${DOQA_SPACE_ID}" \
+                        -F "file=@allure-results.zip" \
+                        -F "type=allure" || echo "⚠️ Ошибка отправки"
+
+                    echo "📦 Генерируем Allure-отчёт для Jenkins..."
+                    if [ -d "allure-results" ]; then
+                        allure generate allure-results -c -o allure-report
+                    else
+                        echo "⚠️ Папка allure-results не найдена"
+                    fi
+                '''
+            }
+
             allure results: [[path: 'allure-report']]
         }
     }
