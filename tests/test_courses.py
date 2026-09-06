@@ -10,6 +10,7 @@ from pages.create_course_page import CreateCoursePage
 @allure.feature("Create Course")
 @allure.story("Create new course")
 @allure.title("Создание нового курса")
+@allure.id('15')
 @allure.severity(allure.severity_level.CRITICAL)
 @pytest.mark.courses
 @pytest.mark.regression
